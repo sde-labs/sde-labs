@@ -8,9 +8,9 @@ import sqlite3
 # Add parent directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from domain.processors import classify_alert
-from infrastructure.database import get_connection, initialize_database
-from infrastructure.repositories import insert_alert, get_all_alerts
+from src.domain.processor import classify_alert
+from src.infrastructure.database import get_connection, initialize_database
+from src.infrastructure.repositories import insert_alert, get_all_alerts
 
 
 def test_classify_alert_critical():
@@ -57,13 +57,13 @@ def test_domain_infrastructure_separation():
     Test that domain layer doesn't import from infrastructure.
     This is a critical architectural constraint.
     """
-    import domain.processors as domain_module
+    import src.domain.processor as domain_module
     import inspect
     
     source = inspect.getsource(domain_module)
     
     # Check that domain doesn't import from infrastructure
-    assert "from infrastructure" not in source, \
+    assert "from infrastructure" not in source and "from src.infrastructure" not in source, \
         "Domain layer should not import from infrastructure layer"
-    assert "import infrastructure" not in source, \
+    assert "import infrastructure" not in source and "import src.infrastructure" not in source, \
         "Domain layer should not import from infrastructure layer"
