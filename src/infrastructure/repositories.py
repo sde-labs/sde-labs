@@ -3,19 +3,6 @@ Infrastructure layer - data access operations
 """
 
 
-def insert_heartbeat(conn, site_id: str, timestamp: str):
-    """
-    Persists heartbeat data to the database.
-    This is infrastructure - it handles I/O.
-    """
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO heartbeats (site_id, timestamp) VALUES (?, ?)",
-        (site_id, timestamp)
-    )
-    conn.commit()
-
-
 def insert_alert(conn, timestamp: str, site_id: str, alert_type: str, 
                 severity: str, latitude: float, longitude: float):
     """
