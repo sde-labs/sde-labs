@@ -1,211 +1,204 @@
-# Week 1: Project Structure - Domain vs Infrastructure
+# Week 2: Type Validation with Pydantic
 
 ## Learning Objectives
 By the end of this lesson, you will:
-- Understand the separation between Domain and Infrastructure layers
-- Recognize why architectural boundaries matter in data engineering
-- Implement business logic independently from I/O operations
+- Understand why validation at boundaries prevents bugs
+- Learn to use Pydantic for data validation
+- Enforce business rules through type constraints
+- Recognize the difference between validation and business logic
 
 ---
 
-## What is Clean Architecture?
+## The Problem with Week 1 Code
 
-Clean Architecture, introduced by Robert C. Martin (Uncle Bob), organizes code into layers with a critical rule: **dependencies point inward**.
+In Week 1, we built a clean architecture with separated Domain and Infrastructure layers. **But there's a critical flaw:**
 
-> "The overriding rule that makes this architecture work is The Dependency Rule. This rule says that source code dependencies can only point inwards. Nothing in an inner circle can know anything at all about something in an outer circle."
-> 
-> — Robert C. Martin, *Clean Architecture*
-
-### The Two Layers We're Focusing On
-
-**Domain Layer (Inner Circle)**
-- Pure business logic
-- No knowledge of databases, files, APIs, or external systems
-- Highly testable - no mocks needed
-- Example: "A leak alert is always critical"
-
-**Infrastructure Layer (Outer Circle)**
-- Handles I/O operations (databases, file systems, network)
-- Depends on Domain layer (can import from it)
-- Example: "Save this alert to SQLite"
-
-**The Golden Rule**: Domain code never imports from Infrastructure. Infrastructure can import from Domain.
-
----
-
-## Why This Matters in Data Engineering
-
-In DE, you're constantly dealing with external systems: databases, message queues, cloud storage, APIs. Without clear boundaries:
-- Business logic gets tangled with I/O code
-- Testing requires spinning up databases
-- Switching from Kafka to Kinesis means rewriting validation logic
-- Bug fixes in one area break unrelated features
-
-Clean separation means:
-- Test business rules without touching a database
-- Swap data sources without changing processing logic
-- Understand code faster - know exactly where to look
-
----
-
-## Today's System: Oil Well Alert Monitoring
-
-You're building a monitoring system for oil wells that processes sensor readings and stores alerts.
-
-### Data Model
-
-**Heartbeats Table** (already implemented as example)
-```
-heartbeats (site_id TEXT, timestamp TEXT)
-```
-
-**Alerts Table** (you'll implement)
-```
-alerts (timestamp TEXT, site_id TEXT, alert_type TEXT, severity TEXT, latitude REAL, longitude REAL)
-```
-
-### Alert Types & Classification Rules
-
-| Alert Type | Severity |
-|------------|----------|
-| PRESSURE | MODERATE |
-| TEMPERATURE | MODERATE |
-| LEAK | CRITICAL |
-| ACOUSTIC | MODERATE |
-| BLOCKAGE | CRITICAL |
-
----
-
-## Template Code Walkthrough
-
-### Project Structure
-```
-oil-well-monitoring/
-├── domain/
-│   ├── __init__.py
-│   ├── models.py          # Data classes
-│   └── processors.py      # Business logic
-├── infrastructure/
-│   ├── __init__.py
-│   ├── database.py        # DB connection
-│   └── repositories.py    # Data access
-├── main.py
-└── tests/
-    └── test_week1.py
-```
-
-### Heartbeat System (Reference Implementation)
-
-**Domain Layer** (`domain/processors.py`):
 ```python
-def validate_heartbeat(site_id: str, timestamp: str) -> bool:
-    """Pure business logic - no I/O"""
-    if not site_id or len(site_id) < 3:
-        return False
-    if not timestamp:
-        return False
-    return True
+# This code will happily accept garbage data!
+process_alert_reading(
+    conn,
+    timestamp="2024-99-99T99:99:99Z", # ❌
+    site_id="SITE_001",
+    alert_type="RAINING_UNICORNS",  # ❌
+    latitude=999.9,              # ❌
+    longitude=-999.9             # ❌
+)
 ```
 
-**Infrastructure Layer** (`infrastructure/repositories.py`):
-```python
-def insert_heartbeat(conn, site_id: str, timestamp: str):
-    """Handles database I/O"""
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO heartbeats (site_id, timestamp) VALUES (?, ?)",
-        (site_id, timestamp)
-    )
-    conn.commit()
-```
+**What happens?**
+1. ✅ Code runs without errors
+2. ❌ Invalid data gets stored in the database
+3. ❌ Downstream systems fail when they encounter bad data
+4. ❌ You discover the problem hours or days later
 
-**Integration** (`main.py`):
-```python
-def process_heartbeat(conn, site_id: str, timestamp: str):
-    if validate_heartbeat(site_id, timestamp):  # Domain
-        insert_heartbeat(conn, site_id, timestamp)  # Infrastructure
-```
+---
 
-Notice the flow: validate (domain) → persist (infrastructure).
+## The Solution: Validate at Boundaries
+
+**Validate data as soon as it enters your system** using type validation.
+
+### Enter Pydantic
+
+Pydantic is Python's industry-standard library for data validation. It:
+- ✅ Validates data types automatically
+- ✅ Enforces custom business rules
+- ✅ Raises clear errors when data is invalid
+- ✅ Integrates seamlessly with type hints
 
 ---
 
 ## Your Assignment
 
-Implement the alert monitoring system following the same pattern.
+You'll harden the Week 1 code by adding Pydantic validation to the `Alert` model.
 
 ### What You Need to Do
 
-1. **In `domain/processors.py`**: Implement `classify_alert(alert_type: str) -> str`
-   - Takes an alert type (PRESSURE, TEMPERATURE, LEAK, ACOUSTIC, BLOCKAGE)
-   - Returns "CRITICAL" or "MODERATE" based on the classification table above
-   - This is pure business logic with no I/O
+**In `domain/models.py`**: Add three validators to the `Alert` model
 
-2. **In `infrastructure/repositories.py`**: Implement `insert_alert(...)`
-   - Takes connection, timestamp, site_id, alert_type, severity, latitude, longitude
-   - Inserts into the alerts table
-   - This handles database I/O
+The file already has TODOs marked. You need to implement:
 
-3. **In `main.py`**: Complete `process_alert_reading(...)`
-   - First, call `classify_alert()` to get the severity (Domain)
-   - Then, call `insert_alert()` with all parameters including severity (Infrastructure)
-   - Wire domain and infrastructure together
+1. **Latitude Validator**
+   - Must be between -90 and 90
+   - Raise `ValueError` with a clear message if invalid
 
-### Key Insight
+2. **Longitude Validator**
+   - Must be between -180 and 180
+   - Raise `ValueError` with a clear message if invalid
 
-Before you pass data to `insert_alert()`, you must add the `severity` field by calling the classification function. The classification logic belongs in the Domain layer because it's a business rule. The database insertion belongs in Infrastructure because it's I/O.
+3. **Alert Type Validator**
+   - Must be one of: `LEAK`, `BLOCKAGE`, `PRESSURE`, `TEMPERATURE`, `ACOUSTIC`
+   - Raise `ValueError` listing valid types if invalid
+
+4. **Bonus: Timestamp Validator**
+
+### Example Validator Pattern
+
+Here's the pattern for Pydantic validators:
+
+```python
+from pydantic import BaseModel, field_validator
+
+class MyModel(BaseModel):
+    my_field: float
+    
+    @field_validator('my_field')
+    def validate_my_field(cls, v):
+        if v < 0:
+            raise ValueError('my_field must be positive')
+        return v
+```
+
+**Key points:**
+- Use the `@field_validator('field_name')` decorator
+- Method signature: `def method_name(cls, v)`
+- Raise `ValueError` with descriptive message
+- Return the value if valid
 
 ---
 
-## Setup Instructions
+## Understanding the Architecture
 
-1. Clone this repository
-2. Install dependencies: `pip install -r requirements.txt`
-3. Complete the TODOs in the code
-4. Run tests: `pytest tests/test_week1.py -v`
-5. Run the application: `python main.py`
+### Where Does Validation Belong? - Revistting Week 1
 
-### Expected Output
+**Question:** Is validation part of the Domain layer or Infrastructure layer?
 
-When you run `main.py`, you should see:
+**Answer:** It depends on the *type* of validation.
+
+**Domain Validation (Business Rules):**
+- Example: "Latitude must be -90 to 90" ← This is a fact about Earth
+- Example: "Alert types are LEAK, BLOCKAGE, etc." ← This is a business domain concept
+- **These belong in Domain models** ✅
+
+**Infrastructure Validation (I/O Constraints):**
+- Example: "JSON must be valid UTF-8"
+- Example: "Request body cannot exceed 1MB"
+- **These belong in Infrastructure** ✅
+
+For Week 2, all our validators are **domain rules**, so they go in `domain/models.py`.
+
+---
+
+## Testing Your Solution
+
+### Run Tests Locally
+```bash
+pytest tests/test_week1.py -v  # Should still pass
+pytest tests/test_week2.py -v  # Should pass after implementing validators
 ```
-Processing heartbeat for SITE_001...
-Heartbeat recorded successfully.
 
-Processing alert: LEAK at SITE_001...
-Alert recorded with severity: CRITICAL
+### Expected Behavior
 
-Processing alert: TEMPERATURE at SITE_002...
-Alert recorded with severity: MODERATE
+**Valid data (should work):**
+```python
+alert = Alert(
+    timestamp="2024-01-26T10:00:00Z",
+    site_id="SITE_001",
+    alert_type="LEAK",
+    severity="CRITICAL",
+    latitude=29.7604,
+    longitude=-95.3698
+)
+print(alert)  # ✅ Works!
 ```
+
+**Invalid data (should raise ValidationError):**
+```python
+from pydantic import ValidationError
+
+try:
+    alert = Alert(
+        timestamp="2024-01-26T10:00:00Z",
+        site_id="SITE_001",
+        alert_type="LEAK",
+        severity="CRITICAL",
+        latitude=999.9,  # ❌ Invalid
+        longitude=-95.3698
+    )
+except ValidationError as e:
+    print(f"Validation failed: {e}")
+    # Validation failed: 1 validation error for Alert
+    # latitude
+    #   Value error, latitude must be between -90 and 90
+```
+
+---
+
+## Real-World Connection
+
+### Where You'll Use This
+
+**Data Engineering Pipelines:**
+- Validate incoming data from APIs, Kafka, or S3 before processing
+- Catch schema changes early before they break downstream jobs
+- Example: "This JSON from the vendor API looks weird..."
+- Ensure data quality before loading into data warehouse
+
+### Industry Standard
+
+**Pydantic is used in:**
+- Notable companies including Netflix, Microsoft, AWS, Uber.
+- FastAPI 
+- Data pipeline tools (Dagster, Prefect)
+- ML model serving (validating inference inputs)
 
 ---
 
 ## Discussion Questions
 
-1. **Dependency Direction**: Why can Infrastructure import from Domain, but not vice versa? What breaks if we reverse this?
-
-2. **Testability**: How would you test `classify_alert()` vs `insert_alert()`? Which one is easier to test and why?
-
-3. **Real-World Scenario**: Imagine your company switches from SQLite to PostgreSQL. Which files would you need to change? Which files should remain untouched?
-
-4. **Beyond Week 1**: What other business logic might belong in the Domain layer for this system? (Hint: think about validation rules, alert deduplication, priority scoring)
-
-5. **Code Smell**: If you see `import sqlite3` at the top of a file in the `domain/` folder, what's wrong? How would you fix it?
+**Production Scenario:** You're ingesting oil well sensor data from 10,000 wells via Kafka. One well starts sending `latitude=null`. Without validation, what breaks? With validation, what happens?
 
 ---
 
 ## Next Week Preview
 
-Week 2 will introduce **type validation** using Pydantic. You'll learn how to enforce data contracts at the boundaries between layers, catching errors before they propagate through your system.
+Week 3 will introduce **error handling and logging**. You'll learn how to gracefully handle validation failures, log them properly, and ensure your pipeline is observable in production.
 
 ---
 
 ## Success Criteria
 
-- ✅ All tests pass
-- ✅ Domain layer doesn't import from infrastructure
-- ✅ Alert classification follows the business rules
-- ✅ Alerts are persisted with correct severity
+- ✅ All tests from this week and prior weeks pass (100 pts)
+  - ✅ Invalid latitude/longitude are rejected 
+  - ✅ Invalid alert types are rejected
+  - ✅ Valid boundary values are accepted
 
-**Remember**: The goal isn't just to make tests pass. The goal is to internalize why we separate concerns and recognize where different types of code belong. Take your time understanding the heartbeat example before implementing alerts.

@@ -1,8 +1,8 @@
 {
   "tests": [
     {
-      "name": "Domain - Classify CRITICAL Alerts",
-      "setup": "pip install -q pytest",
+      "name": "Week 1 - Domain - Classify CRITICAL Alerts",
+      "setup": "pip install -q pytest pydantic",
       "run": "pytest tests/test_week1.py::test_classify_alert_critical -v",
       "input": "",
       "output": "",
@@ -11,7 +11,7 @@
       "points": 20
     },
     {
-      "name": "Domain - Classify MODERATE Alerts",
+      "name": "Week 1 - Domain - Classify MODERATE Alerts",
       "setup": "",
       "run": "pytest tests/test_week1.py::test_classify_alert_moderate -v",
       "input": "",
@@ -21,7 +21,7 @@
       "points": 20
     },
     {
-      "name": "Infrastructure - Insert Alert",
+      "name": "Week 1 - Infrastructure - Insert Alert",
       "setup": "",
       "run": "pytest tests/test_week1.py::test_insert_alert -v",
       "input": "",
@@ -31,7 +31,7 @@
       "points": 25
     },
     {
-      "name": "Architecture - Domain/Infrastructure Separation",
+      "name": "Week 1 - Architecture - Domain/Infrastructure Separation",
       "setup": "",
       "run": "pytest tests/test_week1.py::test_domain_infrastructure_separation -v",
       "input": "",
@@ -39,6 +39,36 @@
       "comparison": "included",
       "timeout": 10,
       "points": 35
+    },
+    {
+      "name": "Week 2 - Validation - Reject Invalid Latitude",
+      "setup": "",
+      "run": "pytest tests/test_week2.py::test_invalid_latitude_rejected -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 30
+    },
+    {
+      "name": "Week 2 - Validation - Reject Invalid Longitude",
+      "setup": "",
+      "run": "pytest tests/test_week2.py::test_invalid_longitude_rejected -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 30
+    },
+    {
+      "name": "Week 2 - Validation - Reject Invalid Alert Type",
+      "setup": "",
+      "run": "pytest tests/test_week2.py::test_invalid_alert_type_rejected -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 40
     }
   ]
 }

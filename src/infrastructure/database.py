@@ -14,14 +14,6 @@ def initialize_database(conn):
     """Creates tables if they don't exist."""
     cursor = conn.cursor()
     
-    # Heartbeats table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS heartbeats (
-            site_id TEXT NOT NULL,
-            timestamp TEXT NOT NULL
-        )
-    """)
-    
     # Alerts table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS alerts (
