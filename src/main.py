@@ -30,5 +30,6 @@ def load_settings():
     Load application settings from environment.
 
     TODO (Week 3): Replace NotImplementedError with Settings.from_env().
+    This should fail fast when required config is missing in local `.env` or CI env vars.
     """
     raise NotImplementedError

@@ -119,6 +119,16 @@
       "comparison": "included",
       "timeout": 10,
       "points": 15
+    },
+    {
+      "name": "Week 3 - CI Secrets - Runtime Env Present",
+      "setup": "",
+      "run": "pytest tests/test_week3.py::test_runtime_env_required_for_ci_secret_flow -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
     }
   ]
 }

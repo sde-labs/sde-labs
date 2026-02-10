@@ -24,6 +24,9 @@ class Settings(BaseModel):
         """
         Build Settings from environment variables.
 
+        Local development reads from `.env` via python-dotenv.
+        CI (GitHub Actions) should provide the same keys as environment variables.
+
         Required variables:
         - APP_ENV
         - DATABASE_URL

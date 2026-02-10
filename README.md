@@ -2,10 +2,10 @@
 
 ## Learning Objectives
 By the end of this lesson, you will:
-- Understand why secrets should never be hardcoded
-- Learn how environment variables separate code from configuration
-- Validate configuration early to fail fast (just like week2 input validation)
-- Recognize the boundary between config validation and business logic (config is niether infra nor domain)
+- Understand why secrets should never be hardcoded or committed
+- Learn how environment variables separate code from configuration (local dev vs CI)
+- Validate configuration early to fail fast (just like Week 2 input validation)
+- Recognize the boundary between config validation and business logic (config is neither infra nor domain)
 
 ---
 
@@ -15,58 +15,31 @@ We validated data, but configuration is still implicit. That leads to brittle de
 
 ```python
 # Hardcoded values or hidden assumptions
-db_path = "oil_well_monitoring.db"  # ❌
-api_token = "super-secret-token"    # ❌
+database_url = "alerts.db"          # ❌
+api_token = "replace-me"            # ❌
 ```
 
 **What happens?**
 1. ✅ Code runs locally
 2. ❌ Secrets end up in source control
 3. ❌ Prod needs different config than dev/test
-4. ❌ Failures show up late instead of at startup
+4. ❌ CI (GitHub Actions) doesn't have your laptop's `.env` or shell exports, so failures show up in CI first
 
 ---
 
 ## The Solution: Environment Variables
 
-Environment variables keep configuration out of code. Combine them with validation so your app fails fast and loudly.
+Environment variables keep config out of code. Validate them at startup so failures are immediate.
 
-### Enter python-dotenv
-`python-dotenv` loads a local `.env` file during development so your shell stays clean, while production still uses real environment variables.
-
----
-
-## Your Assignment
-
-You’ll add a configuration layer that loads and validates environment variables.
-
-### What You Need to Do
-
-**In `src/config/settings.py`**: Implement a Settings model with validation and env loading.
-
-1. **from_env()**
-   - Load variables using `python-dotenv`
-   - Required variables: `APP_ENV`, `DATABASE_URL`, `API_TOKEN`
-   - Raise a clear error for missing values
-
-2. **Environment Validator**
-   - `env` must be one of: `dev`, `test`, `prod`
-
-3. **Database URL Validator**
-   - Must be non-empty
-   - Must end with `.db`
-
-4. **API Token Validator**
-   - Must be non-empty
-
-**In `src/main.py`**: Implement `load_settings()`
-   - Should return `Settings.from_env()`
+### Enter python-dotenv and gh-secrets
+`python-dotenv` loads local `.env` values for development (never commit `.env`). In CI, use GitHub Secrets (`gh secret set -f .env` or UI) to provide the same variables.
 
 ---
 
 ## Example Pattern
 
 ```python
+import os
 from dotenv import load_dotenv
 from pydantic import BaseModel, field_validator
 
@@ -99,8 +72,8 @@ class Settings(BaseModel):
 
 Configuration is not business logic. It sits at the boundary and should be validated before your domain logic runs.
 
-- **Config validation**: Infrastructure concern - Domain does not know this exists, but reaps the benefit when it accesses process.env 
-- **Business validation**: Domain concern
+- **Config validation**: Boundary/infrastructure concern - validate once at startup, then pass safe values inward
+- **Business validation**: Domain concern - validate inputs and rules that exist even without deployment
 
 ---
 
@@ -111,39 +84,57 @@ Configuration is not business logic. It sits at the boundary and should be valid
 pytest tests/test_week3.py -v  # Should pass after implementing config, and prior weeks should still pass
 ```
 
+Local: use `.env` or exports. CI: set repo secrets. Missing secrets should fail fast.
+
 ### Expected Behavior
 
 **Valid config (should work):**
-```bash
-export APP_ENV=dev
-export DATABASE_URL=alerts.db
-export API_TOKEN=secret-token
+```dotenv
+APP_ENV=dev
+DATABASE_URL=alerts.db
+API_TOKEN=replace-me
 ```
 
-**Missing config (should fail fast):**
-```bash
-unset DATABASE_URL
-```
+**CI setup (GitHub Actions): set repo secrets using your preferred method**
+UI: `Settings -> Secrets and variables -> Actions -> New repository secret`
+CLI: `gh secret set -f .env`
 
 ---
 
 ## Real-World Connection
 
 ### Where You’ll Use This
-- Data pipelines reading secrets from a vault
-- Container deployments with environment-based config
-- CI systems injecting credentials at runtime
+- Deployments where config differs per environment
+- CI systems (like GitHub Actions) injecting credentials at runtime
 
 ### Industry Standard
-- 12-factor apps
-- Kubernetes secrets
-- Vault/SSM/Secrets Manager
+- Docker Compose: direct `.env` interpolation for service config
+- GitHub Actions: `gh secret set -f .env` to import dotenv keys as secrets
+- `python-dotenv`: direct `.env` loading in app startup
+- 12-factor apps: config in environment, not in code
 
 ---
 
 ## Discussion Questions
 
-**Production Scenario:** A developer accidentally checks in a `.env` file with real API keys. What could go wrong? How do you prevent it? How do you remediate it?
+**Production Scenario:** A developer accidentally checks in a `.env` file with a real API token. What could go wrong? How do you prevent it? How do you remediate it?
+
+---
+
+## Your Assignment
+
+Implement the Week 3 config layer.
+
+**In `src/config/settings.py`:**
+1. Implement `from_env()` using `python-dotenv`.
+2. Require `APP_ENV`, `DATABASE_URL`, `API_TOKEN`.
+3. Validate:
+   - `env` in `dev | test | prod`
+   - `database_url` is non-empty and ends with `.db`
+   - `api_token` is non-empty
+
+**In `src/main.py`:**
+- Implement `load_settings()` to return `Settings.from_env()`.
 
 ---
 

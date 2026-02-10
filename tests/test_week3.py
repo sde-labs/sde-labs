@@ -89,3 +89,21 @@ def test_empty_api_token_rejected(monkeypatch):
 
     error_str = str(exc_info.value)
     assert "api_token" in error_str.lower()
+
+
+def test_runtime_env_required_for_ci_secret_flow():
+    required = ("APP_ENV", "DATABASE_URL", "API_TOKEN")
+    missing = [name for name in required if not os.getenv(name)]
+
+    assert not missing, (
+        "Missing required runtime config: "
+        + ", ".join(missing)
+        + ". Locally use a .env file. In GitHub Actions set repo secrets "
+          "(UI: Settings -> Secrets and variables -> Actions, or CLI: gh secret set -f .env)."
+    )
+
+    settings = Settings.from_env()
+
+    assert settings.env in {"dev", "test", "prod"}
+    assert settings.database_url.endswith(".db")
+    assert settings.api_token.strip() != ""
