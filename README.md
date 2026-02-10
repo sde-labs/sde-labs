@@ -75,6 +75,10 @@ Configuration is not business logic. It sits at the boundary and should be valid
 - **Config validation**: Boundary/infrastructure concern - validate once at startup, then pass safe values inward
 - **Business validation**: Domain concern - validate inputs and rules that exist even without deployment
 
+ `APP_ENV` represents a whole slice of infrastructure.
+If you run `dev`, you usually mean a full set of resources like `dev_lambda`, `dev_db`, `dev_gateway`.
+If you run `stg`, you usually mean `stg_lambda`, `stg_db`, `stg_gateway`. Same code, different world.
+
 ---
 
 ## Testing Your Solution
@@ -106,6 +110,9 @@ CLI: `gh secret set -f .env`
 ### Where You’ll Use This
 - Deployments where config differs per environment
 - CI systems (like GitHub Actions) injecting credentials at runtime
+
+This week we only set the GH Secrets, and unit tests prove whether they exist.
+In a full CI/CD pipeline, the next step is taking those same values and deploying them into cloud/local infrastructure (for example with Terraform or Ansible).
 
 ### Industry Standard
 - Docker Compose: direct `.env` interpolation for service config
