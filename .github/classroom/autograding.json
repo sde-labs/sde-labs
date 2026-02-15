@@ -129,6 +129,96 @@
       "comparison": "included",
       "timeout": 10,
       "points": 20
+    },
+    {
+      "name": "Week 4 - Config - Default Log Level",
+      "setup": "",
+      "run": "pytest tests/test_week4.py::test_settings_default_log_level_is_info -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 10
+    },
+    {
+      "name": "Week 4 - Config - from_env Default INFO",
+      "setup": "",
+      "run": "pytest tests/test_week4.py::test_from_env_defaults_log_level_to_info -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 10
+    },
+    {
+      "name": "Week 4 - Logging - Format Timestamp Level Message",
+      "setup": "",
+      "run": "pytest tests/test_week4.py::test_build_logger_uses_timestamp_level_message_format -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 4 - Logging - Debug Visible At Debug Level",
+      "setup": "",
+      "run": "pytest tests/test_week4.py::test_build_logger_debug_visible_when_level_is_debug -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 15
+    },
+    {
+      "name": "Week 4 - Runtime - Happy Path Logs And Persists",
+      "setup": "",
+      "run": "pytest tests/test_week4.py::test_process_alert_event_happy_path_logs_and_persists -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 4 - Runtime - Legacy Processing Still Works",
+      "setup": "",
+      "run": "pytest tests/test_week4.py::test_process_alert_reading_wires_domain_and_infra -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 10
+    },
+    {
+      "name": "Week 4 - Runtime - Validation Failure Logged",
+      "setup": "",
+      "run": "pytest tests/test_week4.py::test_process_alert_event_logs_validation_failure_with_exception -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 15
+    },
+    {
+      "name": "Week 4 - Runtime - Retries Then Succeeds",
+      "setup": "",
+      "run": "pytest tests/test_week4.py::test_process_alert_event_retries_then_succeeds -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 4 - Runtime - Exhausted Retries Logs And Raises",
+      "setup": "",
+      "run": "pytest tests/test_week4.py::test_process_alert_event_logs_runtime_failure_after_retries -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
     }
   ]
 }

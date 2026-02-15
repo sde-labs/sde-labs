@@ -1,152 +1,117 @@
-# Week 3: Environment Variables & Secrets
+# Week 4: Error Handling, Logging, and Basic Retries
 
 ## Learning Objectives
 By the end of this lesson, you will:
-- Understand why secrets should never be hardcoded or committed
-- Learn how environment variables separate code from configuration (local dev vs CI)
-- Validate configuration early to fail fast (just like Week 2 input validation)
-- Recognize the boundary between config validation and business logic (config is neither infra nor domain)
+- Add useful logs for success and failure paths
+- Configure logging through environment variables
+- Use `logger.exception(...)` to keep stack traces in logs
+- Retry transient persistence failures in a controlled way
+- Keep domain logic clean while orchestration handles runtime behavior
 
 ---
 
-## The Problem with Week 2 Code
+## 20-Minute Talk Plan
 
-We validated data, but configuration is still implicit. That leads to brittle deployments and leaked secrets.
+### 0:00-4:00 - Runtime failures you will hit
+- Invalid payloads
+- Temporary DB failures
+- Why silent failures waste hours
 
-```python
-# Hardcoded values or hidden assumptions
-database_url = "alerts.db"          # ❌
-api_token = "replace-me"            # ❌
-```
+### 4:00-8:00 - Logging essentials
+- Levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
+- Keep format standard: `timestamp,level,msg`
+- `DEBUG` is opt-in
 
-**What happens?**
-1. ✅ Code runs locally
-2. ❌ Secrets end up in source control
-3. ❌ Prod needs different config than dev/test
-4. ❌ CI (GitHub Actions) doesn't have your laptop's `.env` or shell exports, so failures show up in CI first
+### 8:00-12:00 - `logger.error` vs `logger.exception`
+- `logger.error(...)` for message-only failures
+- `logger.exception(...)` inside `except` for traceback + context
 
----
+### 12:00-16:00 - Simple retry strategy
+- Retry only infra failures
+- Do not retry validation failures
+- Keep retries bounded (`max_retries`)
 
-## The Solution: Environment Variables
-
-Environment variables keep config out of code. Validate them at startup so failures are immediate.
-
-### Enter python-dotenv and gh-secrets
-`python-dotenv` loads local `.env` values for development (never commit `.env`). In CI, use GitHub Secrets (`gh secret set -f .env` or UI) to provide the same variables.
-
----
-
-## Example Pattern
-
-```python
-import os
-from dotenv import load_dotenv
-from pydantic import BaseModel, field_validator
-
-class Settings(BaseModel):
-    env: str
-    database_url: str
-    api_token: str
-
-    @classmethod
-    def from_env(cls):
-        load_dotenv()
-        return cls(
-            env=os.getenv("APP_ENV"),
-            database_url=os.getenv("DATABASE_URL"),
-            api_token=os.getenv("API_TOKEN"),
-        )
-
-    @field_validator("env")
-    def validate_env(cls, v):
-        if v not in {"dev", "test", "prod"}:
-            raise ValueError("env must be one of: dev, test, prod")
-        return v
-```
+### 16:00-20:00 - Configuration and workflow
+- Add `LOG_LEVEL` in config with default `INFO`
+- Set local `.env` to `LOG_LEVEL=DEBUG` when debugging
+- Tests should pass even when log level is not `DEBUG`
 
 ---
 
-## Understanding the Architecture
+## 15-Minute Assignment Solve Plan
 
-### Where Does Configuration Belong?
+### 0:00-5:00 - Config + logger
+1. Add `log_level` to `Settings`.
+2. Read `LOG_LEVEL` from env (default `INFO`).
+3. Build logger with `%(asctime)s,%(levelname)s,%(message)s`.
 
-Configuration is not business logic. It sits at the boundary and should be validated before your domain logic runs.
+### 5:00-11:00 - Process flow with errors + retries
+1. Validate input with `Alert`.
+2. Classify and persist.
+3. On persistence failure, retry up to `max_retries`.
+4. Log retry attempts with `WARNING`.
+5. On final failure, use `logger.exception(...)` and re-raise.
+6. On validation failure, use `logger.exception(...)` and re-raise immediately.
 
-- **Config validation**: Boundary/infrastructure concern - validate once at startup, then pass safe values inward
-- **Business validation**: Domain concern - validate inputs and rules that exist even without deployment
-
----
-
-## Testing Your Solution
-
-### Run Tests Locally
-```bash
-pytest tests/test_week3.py -v  # Should pass after implementing config, and prior weeks should still pass
-```
-
-Local: use `.env` or exports. CI: set repo secrets. Missing secrets should fail fast.
-
-### Expected Behavior
-
-**Valid config (should work):**
-```dotenv
-APP_ENV=dev
-DATABASE_URL=alerts.db
-API_TOKEN=replace-me
-```
-
-**CI setup (GitHub Actions): set repo secrets using your preferred method**
-UI: `Settings -> Secrets and variables -> Actions -> New repository secret`
-CLI: `gh secret set -f .env`
-
----
-
-## Real-World Connection
-
-### Where You’ll Use This
-- Deployments where config differs per environment
-- CI systems (like GitHub Actions) injecting credentials at runtime
-
-### Industry Standard
-- Docker Compose: direct `.env` interpolation for service config
-- GitHub Actions: `gh secret set -f .env` to import dotenv keys as secrets
-- `python-dotenv`: direct `.env` loading in app startup
-- 12-factor apps: config in environment, not in code
-
----
-
-## Discussion Questions
-
-**Production Scenario:** A developer accidentally checks in a `.env` file with a real API token. What could go wrong? How do you prevent it? How do you remediate it?
+### 11:00-15:00 - Verify behavior
+1. Run Week 4 tests.
+2. Run all tests.
+3. Set `.env` to `LOG_LEVEL=DEBUG` and confirm debug lines appear.
 
 ---
 
 ## Your Assignment
 
-Implement the Week 3 config layer.
+Implement Week 4 in the existing project.
 
-**In `src/config/settings.py`:**
-1. Implement `from_env()` using `python-dotenv`.
-2. Require `APP_ENV`, `DATABASE_URL`, `API_TOKEN`.
-3. Validate:
-   - `env` in `dev | test | prod`
-   - `database_url` is non-empty and ends with `.db`
-   - `api_token` is non-empty
+### In `src/config/settings.py`
+1. Add `log_level` to `Settings` (default `INFO`).
+2. Update `from_env()` to read `LOG_LEVEL` with default `INFO`.
+3. Validate allowed values: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.
 
-**In `src/main.py`:**
-- Implement `load_settings()` to return `Settings.from_env()`.
+### In `src/main.py`
+1. Implement `load_settings()`.
+2. Implement `build_logger(log_level, stream=None)`.
+   - Logger name: `oil_well_monitoring`
+   - Format: `%(asctime)s,%(levelname)s,%(message)s`
+3. Implement `process_alert_event(..., max_retries=2)`.
+   - Validate with `Alert`
+   - Persist via existing repository call
+   - Retry persistence failures up to `max_retries`
+   - Log each retry at `WARNING`
+   - Use `logger.exception(...)` for validation failures and final runtime failure
+   - Re-raise after logging
+
+### In local `.env`
+Add this during debugging:
+
+```dotenv
+LOG_LEVEL=DEBUG
+```
+
+This is part of the assignment: turn `DEBUG` on and verify debug logs appear. Unit tests should still pass with default `INFO` behavior.
 
 ---
 
-## Next Week Preview
+## Testing
 
-Week 4 will introduce **error handling and logging**, so failures become visible and debuggable in production.
+```bash
+pytest tests/test_week4.py -v
+pytest tests -v
+```
 
 ---
 
 ## Success Criteria
 
-- ✅ All tests from this week and prior weeks pass
-- ✅ Missing env vars fail fast
-- ✅ Invalid config is rejected
-- ✅ Valid config loads cleanly
+- ✅ Week 1-4 tests pass
+- ✅ Logs use `timestamp,level,msg` format
+- ✅ `DEBUG` logs appear when `LOG_LEVEL=DEBUG`
+- ✅ Validation failures are logged with `logger.exception(...)`
+- ✅ Persistence failures retry, then log+raise when exhausted
+
+---
+
+## Next Week Preview
+
+Week 5 will cover authentication basics: API key auth and OAuth, and where each fits in real systems.
