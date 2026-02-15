@@ -83,7 +83,7 @@
     {
       "name": "Week 3 - Config - Missing Required Env Var",
       "setup": "",
-      "run": "pytest tests/test_week3.py::test_missing_required_env_var_rejected -v",
+      "run": "env -u DATABASE_URL pytest tests/test_week3.py::test_missing_required_env_var_rejected -v",
       "input": "",
       "output": "",
       "comparison": "included",
@@ -124,6 +124,116 @@
       "name": "Week 3 - CI Secrets - Runtime Env Present",
       "setup": "",
       "run": "pytest tests/test_week3.py::test_runtime_env_required_for_ci_secret_flow -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 4 - Logging - Format Timestamp Level Message",
+      "setup": "",
+      "run": "pytest tests/test_week4.py::test_build_logger_uses_timestamp_level_message_format -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 4 - Logging - Debug Visibility",
+      "setup": "",
+      "run": "pytest tests/test_week4.py::test_build_logger_debug_visible_when_level_is_debug -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 15
+    },
+    {
+      "name": "Week 4 - Runtime - Happy Path",
+      "setup": "",
+      "run": "pytest tests/test_week4.py::test_process_alert_event_happy_path_logs_and_persists -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 4 - Runtime - Validation Failure",
+      "setup": "",
+      "run": "pytest tests/test_week4.py::test_process_alert_event_validation_failure_logs_and_raises -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 15
+    },
+    {
+      "name": "Week 4 - Runtime - Retries Then Success",
+      "setup": "",
+      "run": "pytest tests/test_week4.py::test_process_alert_event_retries_then_succeeds -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 15
+    },
+    {
+      "name": "Week 4 - Runtime - Retry Exhaustion",
+      "setup": "",
+      "run": "pytest tests/test_week4.py::test_process_alert_event_runtime_failure_after_retries -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 15
+    },
+    {
+      "name": "Week 5 - Testing - Log Level Parametrized",
+      "setup": "",
+      "run": "pytest tests/test_week5.py::test_week5_log_level_behavior -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 5 - Testing - Missing Config Case",
+      "setup": "",
+      "run": "pytest tests/test_week5.py::test_week5_config_missing_database_url_raises -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 5 - Testing - Validation Not Retried",
+      "setup": "",
+      "run": "pytest tests/test_week5.py::test_week5_validation_error_not_retried -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 5 - Testing - Retry On Infra Failure",
+      "setup": "",
+      "run": "pytest tests/test_week5.py::test_week5_persistence_failure_retries -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 5 - Testing - Terminal Failure",
+      "setup": "",
+      "run": "pytest tests/test_week5.py::test_week5_final_failure_logs_and_raises -v",
       "input": "",
       "output": "",
       "comparison": "included",

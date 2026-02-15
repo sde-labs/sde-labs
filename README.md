@@ -1,152 +1,107 @@
-# Week 3: Environment Variables & Secrets
+# Week 5: Testing That Catches Real Bugs
 
 ## Learning Objectives
 By the end of this lesson, you will:
-- Understand why secrets should never be hardcoded or committed
-- Learn how environment variables separate code from configuration (local dev vs CI)
-- Validate configuration early to fail fast (just like Week 2 input validation)
-- Recognize the boundary between config validation and business logic (config is neither infra nor domain)
+- write focused tests for happy paths and failure paths
+- test retries and logging behavior without flaky sleeps
+- use fixtures, parametrization, and monkeypatch in practical ways
+- keep tests readable and deterministic
 
 ---
 
-## The Problem with Week 2 Code
+## Why This Week Matters
 
-We validated data, but configuration is still implicit. That leads to brittle deployments and leaked secrets.
+By Week 4 we have validation, logging, and retries. That gives us better runtime behavior, but we still need protection against regressions.
 
-```python
-# Hardcoded values or hidden assumptions
-database_url = "alerts.db"          # ❌
-api_token = "replace-me"            # ❌
-```
+Good tests are not about chasing coverage numbers. They protect behavior that matters.
 
-**What happens?**
-1. ✅ Code runs locally
-2. ❌ Secrets end up in source control
-3. ❌ Prod needs different config than dev/test
-4. ❌ CI (GitHub Actions) doesn't have your laptop's `.env` or shell exports, so failures show up in CI first
+In this project, the most important behaviors are:
+- bad config is rejected
+- invalid alerts fail fast
+- transient persistence errors retry
+- terminal failures are logged and raised
 
 ---
 
-## The Solution: Environment Variables
+## What To Test In This Repo
 
-Environment variables keep config out of code. Validate them at startup so failures are immediate.
+### 1) Config behavior
+`Settings.from_env()` should:
+- load valid values
+- fail when required vars are missing
+- reject invalid values
+- default optional values like `LOG_LEVEL`
 
-### Enter python-dotenv and gh-secrets
-`python-dotenv` loads local `.env` values for development (never commit `.env`). In CI, use GitHub Secrets (`gh secret set -f .env` or UI) to provide the same variables.
+Example: if someone removes the `.db` validation, your test should fail right away.
 
----
+### 2) Logger behavior
+`build_logger()` should:
+- use `timestamp,level,msg` format
+- show debug lines only when level is `DEBUG`
 
-## Example Pattern
+### 3) Orchestration behavior
+`process_alert_event()` should:
+- validate and persist on happy path
+- not retry validation failures
+- retry transient persistence failures
+- log terminal failures and re-raise
 
-```python
-import os
-from dotenv import load_dotenv
-from pydantic import BaseModel, field_validator
-
-class Settings(BaseModel):
-    env: str
-    database_url: str
-    api_token: str
-
-    @classmethod
-    def from_env(cls):
-        load_dotenv()
-        return cls(
-            env=os.getenv("APP_ENV"),
-            database_url=os.getenv("DATABASE_URL"),
-            api_token=os.getenv("API_TOKEN"),
-        )
-
-    @field_validator("env")
-    def validate_env(cls, v):
-        if v not in {"dev", "test", "prod"}:
-            raise ValueError("env must be one of: dev, test, prod")
-        return v
-```
+Example: retrying a bad `alert_type` is useless, retrying a temporary DB failure can help.
 
 ---
 
-## Understanding the Architecture
+## Golden Rules
 
-### Where Does Configuration Belong?
+1. Test behavior, not implementation details.
+2. Keep each test focused on one outcome.
+3. Avoid nondeterminism (no sleeps, no network).
+4. Use monkeypatch to simulate failures deterministically.
+5. If production code re-raises exceptions, tests should assert that too.
 
-Configuration is not business logic. It sits at the boundary and should be validated before your domain logic runs.
-
-- **Config validation**: Boundary/infrastructure concern - validate once at startup, then pass safe values inward
-- **Business validation**: Domain concern - validate inputs and rules that exist even without deployment
+If a test passes randomly, it is not done yet.
 
 ---
 
-## Testing Your Solution
+## Assignment
 
-### Run Tests Locally
+Implement the Week 5 tests.
+
+### In `tests/test_week5.py`
+Complete the TODO tests so they verify all key Week 4 behaviors.
+
+You must include:
+- at least one parametrized test (`@pytest.mark.parametrize`)
+- at least one fixture (`@pytest.fixture`)
+- at least one monkeypatch-based failure simulation
+
+Keep each test small and explicit.
+
+Expected focus areas:
+- config validation and defaults
+- logger level + format behavior
+- retry semantics
+- failure logging + exception re-raise
+
+---
+
+## Testing
+
 ```bash
-pytest tests/test_week3.py -v  # Should pass after implementing config, and prior weeks should still pass
+pytest tests/test_week5.py -v
+pytest tests -v
 ```
-
-Local: use `.env` or exports. CI: set repo secrets. Missing secrets should fail fast.
-
-### Expected Behavior
-
-**Valid config (should work):**
-```dotenv
-APP_ENV=dev
-DATABASE_URL=alerts.db
-API_TOKEN=replace-me
-```
-
-**CI setup (GitHub Actions): set repo secrets using your preferred method**
-UI: `Settings -> Secrets and variables -> Actions -> New repository secret`
-CLI: `gh secret set -f .env`
-
----
-
-## Real-World Connection
-
-### Where You’ll Use This
-- Deployments where config differs per environment
-- CI systems (like GitHub Actions) injecting credentials at runtime
-
-### Industry Standard
-- Docker Compose: direct `.env` interpolation for service config
-- GitHub Actions: `gh secret set -f .env` to import dotenv keys as secrets
-- `python-dotenv`: direct `.env` loading in app startup
-- 12-factor apps: config in environment, not in code
-
----
-
-## Discussion Questions
-
-**Production Scenario:** A developer accidentally checks in a `.env` file with a real API token. What could go wrong? How do you prevent it? How do you remediate it?
-
----
-
-## Your Assignment
-
-Implement the Week 3 config layer.
-
-**In `src/config/settings.py`:**
-1. Implement `from_env()` using `python-dotenv`.
-2. Require `APP_ENV`, `DATABASE_URL`, `API_TOKEN`.
-3. Validate:
-   - `env` in `dev | test | prod`
-   - `database_url` is non-empty and ends with `.db`
-   - `api_token` is non-empty
-
-**In `src/main.py`:**
-- Implement `load_settings()` to return `Settings.from_env()`.
-
----
-
-## Next Week Preview
-
-Week 4 will introduce **error handling and logging**, so failures become visible and debuggable in production.
 
 ---
 
 ## Success Criteria
 
-- ✅ All tests from this week and prior weeks pass
-- ✅ Missing env vars fail fast
-- ✅ Invalid config is rejected
-- ✅ Valid config loads cleanly
+- ✅ Prior week tests still pass
+- ✅ Week 5 tests are deterministic and meaningful
+- ✅ Retry tests verify the right failures are retried
+- ✅ Failure path tests assert both logs and raised exceptions
+
+---
+
+## Next Week Preview
+
+Week 6 will look at authentication options, including API key auth and OAuth, and where each one fits.
