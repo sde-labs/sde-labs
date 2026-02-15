@@ -2,94 +2,135 @@
 
 ## Learning Objectives
 By the end of this lesson, you will:
-- Add useful logs for success and failure paths
-- Configure logging through environment variables
-- Use `logger.exception(...)` to keep stack traces in logs
-- Retry transient persistence failures in a controlled way
-- Keep domain logic clean while orchestration handles runtime behavior
+- add helpful logs 
+- control log verbosity with environment configuration
+- use `logger.exception(...)` to preserve stack traces
+- retry transient infrastructure failures safely
+- ... all while keeping domain logic clean 
 
 ---
 
-## 20-Minute Talk Plan
+## Why This Week Matters
 
-### 0:00-4:00 - Runtime failures you will hit
-- Invalid payloads
-- Temporary DB failures
-- Why silent failures waste hours
+Up to Week 3, we focused on validating data and configuration early. That is necessary, but production issues still happen after startup.
 
-### 4:00-8:00 - Logging essentials
-- Levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
-- Keep format standard: `timestamp,level,msg`
-- `DEBUG` is opt-in
+Common examples:
+- payload arrives with invalid values that our type validators don't catch
+- database insert fails because of a temporary lock
+- tests fail in CI with little context because logs are too sparse
 
-### 8:00-12:00 - `logger.error` vs `logger.exception`
-- `logger.error(...)` for message-only failures
-- `logger.exception(...)` inside `except` for traceback + context
-
-### 12:00-16:00 - Simple retry strategy
-- Retry only infra failures
-- Do not retry validation failures
-- Keep retries bounded (`max_retries`)
-
-### 16:00-20:00 - Configuration and workflow
-- Add `LOG_LEVEL` in config with default `INFO`
-- Set local `.env` to `LOG_LEVEL=DEBUG` when debugging
-- Tests should pass even when log level is not `DEBUG`
+The goal is to make failures obvious, actionable, and bounded.
 
 ---
 
-## 15-Minute Assignment Solve Plan
+## Logging You Can Actually Use
 
-### 0:00-5:00 - Config + logger
-1. Add `log_level` to `Settings`.
-2. Read `LOG_LEVEL` from env (default `INFO`).
-3. Build logger with `%(asctime)s,%(levelname)s,%(message)s`.
+Use standard levels:
+- `DEBUG` for deep troubleshooting
+- `INFO` for normal successful flow
+- `WARNING` for recoverable issues (like retries)
+- `ERROR`/`CRITICAL` for terminal failures
 
-### 5:00-11:00 - Process flow with errors + retries
-1. Validate input with `Alert`.
-2. Classify and persist.
-3. On persistence failure, retry up to `max_retries`.
-4. Log retry attempts with `WARNING`.
-5. On final failure, use `logger.exception(...)` and re-raise.
-6. On validation failure, use `logger.exception(...)` and re-raise immediately.
+Use a consistent format so local logs and CI logs are easy to scan:
 
-### 11:00-15:00 - Verify behavior
-1. Run Week 4 tests.
-2. Run all tests.
-3. Set `.env` to `LOG_LEVEL=DEBUG` and confirm debug lines appear.
+`timestamp,level,msg`
+
+In Python logging format terms:
+
+`%(asctime)s,%(levelname)s,%(message)s`
+
+Also, remember the difference between:
+- `logger.error("...")` -> message only
+- `logger.exception("...")` -> message plus traceback (inside `except`)
+
+If you are catching an exception and re-raising it, `logger.exception(...)` is usually what you want.
 
 ---
 
-## Your Assignment
+## When Retries Help (And When They Don’t)
+
+Retries are for failures that can change between attempts.
+
+Good retry candidates:
+- temporary database lock
+- brief network timeout
+- transient service unavailability
+
+Bad retry candidates:
+- invalid data shape
+- failed regex validation
+- missing required fields
+
+Concrete example:
+- If `site_id` fails a regex check now, retrying that exact same string five times will still fail five times.
+- If DB insert fails due to a short lock, retrying may succeed on the next attempt.
+
+So this week’s rule is simple:
+- do **not** retry validation failures
+- **do** retry persistence failures up to a small, fixed limit
+
+We are keeping retries simple with a bounded attempt count (`max_retries`). In real systems, teams often add exponential backoff (wait a little longer before each retry) plus jitter to avoid synchronized retry storms.
+
+---
+
+## Golden Rules (So It Does Not Become a Swamp)
+
+1. Validate early, outside retry loops.
+   - If input/config is invalid, fail once, log once, and return the error.
+
+2. Retry only the unstable I/O boundary.
+   - Put retries around the DB write call, not around the whole function.
+
+3. Keep `try/except` as narrow as possible.
+   - Catch `ValidationError` around validation.
+   - Catch runtime exceptions around persistence.
+
+4. Log once per decision point.
+   - `DEBUG`: start/context
+   - `WARNING`: each retry attempt
+   - `INFO`: success
+   - `exception(...)`: terminal failure before re-raise
+
+5. Re-raise after terminal failure.
+   - Logging is observability, not recovery by itself.
+
+If you follow these five rules, your code stays readable and your logs stay useful.
+
+---
+
+## Assignment
 
 Implement Week 4 in the existing project.
 
-### In `src/config/settings.py`
-1. Add `log_level` to `Settings` (default `INFO`).
-2. Update `from_env()` to read `LOG_LEVEL` with default `INFO`.
-3. Validate allowed values: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.
+### 1) Extend config in `src/config/settings.py`
+- Add `log_level` to `Settings` with default `INFO`.
+- Update `from_env()` to read `LOG_LEVEL` (default `INFO`).
+- Validate allowed values: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.
 
-### In `src/main.py`
-1. Implement `load_settings()`.
-2. Implement `build_logger(log_level, stream=None)`.
-   - Logger name: `oil_well_monitoring`
-   - Format: `%(asctime)s,%(levelname)s,%(message)s`
-3. Implement `process_alert_event(..., max_retries=2)`.
-   - Validate with `Alert`
-   - Persist via existing repository call
-   - Retry persistence failures up to `max_retries`
-   - Log each retry at `WARNING`
-   - Use `logger.exception(...)` for validation failures and final runtime failure
-   - Re-raise after logging
+### 2) Implement orchestration in `src/main.py`
+- Implement `load_settings()`.
+- Implement `build_logger(log_level, stream=None)`:
+  - logger name: `oil_well_monitoring`
+  - format: `%(asctime)s,%(levelname)s,%(message)s`
+  - avoid duplicate handlers in repeated calls
+- Implement `process_alert_event(..., max_retries=2)`:
+  - validate with `Alert`
+  - classify + persist using existing code
+  - retry persistence failures up to `max_retries`
+  - log retry attempts with `WARNING`
+  - on validation failure: `logger.exception(...)` then re-raise
+  - on final persistence failure: `logger.exception(...)` then re-raise
+  - on success: log at `INFO`
 
-### In local `.env`
-Add this during debugging:
+### 3) Local debugging toggle in `.env`
+
+Set:
 
 ```dotenv
 LOG_LEVEL=DEBUG
 ```
 
-This is part of the assignment: turn `DEBUG` on and verify debug logs appear. Unit tests should still pass with default `INFO` behavior.
+Use this while debugging so debug lines appear. Tests should still pass with default `INFO` behavior.
 
 ---
 
@@ -105,13 +146,13 @@ pytest tests -v
 ## Success Criteria
 
 - ✅ Week 1-4 tests pass
-- ✅ Logs use `timestamp,level,msg` format
-- ✅ `DEBUG` logs appear when `LOG_LEVEL=DEBUG`
-- ✅ Validation failures are logged with `logger.exception(...)`
-- ✅ Persistence failures retry, then log+raise when exhausted
+- ✅ logs follow `timestamp,level,msg`
+- ✅ debug logs appear when `LOG_LEVEL=DEBUG`
+- ✅ validation failures are logged with traceback and not retried
+- ✅ persistence failures retry up to the limit, then log and raise
 
 ---
 
 ## Next Week Preview
 
-Week 5 will cover authentication basics: API key auth and OAuth, and where each fits in real systems.
+Week 5 will look at authentication options, including API key auth and OAuth, and where each one fits.
