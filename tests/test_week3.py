@@ -14,7 +14,11 @@ from src.config.settings import Settings
 
 
 def _set_env(monkeypatch, **values):
+    from dotenv import load_dotenv
+
+    load_dotenv()
     [monkeypatch.delenv(k, raising=False) for k in ("APP_ENV", "DATABASE_URL", "API_TOKEN")]
+    monkeypatch.setenv("PYTHON_DOTENV_DISABLED", "1")
     for key, value in values.items():
         monkeypatch.setenv(key, value)
 
