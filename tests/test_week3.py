@@ -14,6 +14,7 @@ from src.config.settings import Settings
 
 
 def _set_env(monkeypatch, **values):
+    [monkeypatch.delenv(k, raising=False) for k in ("APP_ENV", "DATABASE_URL", "API_TOKEN")]
     for key, value in values.items():
         monkeypatch.setenv(key, value)
 
