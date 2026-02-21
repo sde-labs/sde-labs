@@ -1,93 +1,103 @@
-# Week 5: Testing That Catches Real Bugs
+# Week 6: Practical Auth - Basic, JWT, and OAuth Scopes
 
 ## Learning Objectives
 By the end of this lesson, you will:
-- write focused tests for happy paths and failure paths
-- test retries and logging behavior without flaky sleeps
-- use fixtures, parametrization, and monkeypatch in practical ways
-- keep tests readable and deterministic
+- parse and verify Basic auth safely
+- issue and verify HS256 JWTs with expiration
+- extract bearer tokens and enforce OAuth-style scopes
+- avoid common auth pitfalls in small Python services
 
 ---
 
 ## Why This Week Matters
 
-By Week 4 we have validation, logging, and retries. That gives us better runtime behavior, but we still need protection against regressions.
+Most security incidents are not caused by advanced crypto attacks. They happen because simple auth details are inconsistent or skipped.
 
-Good tests are not about chasing coverage numbers. They protect behavior that matters.
+Typical examples:
+- accepting malformed `Authorization` headers
+- comparing secrets with normal `==` instead of constant-time checks
+- trusting JWT payloads without verifying signature or `exp`
+- checking for "some scope" instead of all required scopes
 
-In this project, the most important behaviors are:
-- bad config is rejected
-- invalid alerts fail fast
-- transient persistence errors retry
-- terminal failures are logged and raised
-
----
-
-## What To Test In This Repo
-
-### 1) Config behavior
-`Settings.from_env()` should:
-- load valid values
-- fail when required vars are missing
-- reject invalid values
-- default optional values like `LOG_LEVEL`
-
-Example: if someone removes the `.db` validation, your test should fail right away.
-
-### 2) Logger behavior
-`build_logger()` should:
-- use `timestamp,level,msg` format
-- show debug lines only when level is `DEBUG`
-
-### 3) Orchestration behavior
-`process_alert_event()` should:
-- validate and persist on happy path
-- not retry validation failures
-- retry transient persistence failures
-- log terminal failures and re-raise
-
-Example: retrying a bad `alert_type` is useless, retrying a temporary DB failure can help.
+This week is about building guardrails that are small, boring, and dependable.
 
 ---
 
-## Golden Rules
+## Three Auth Modes, One Mental Model
 
-1. Test behavior, not implementation details.
-2. Keep each test focused on one outcome.
-3. Avoid nondeterminism (no sleeps, no network).
-4. Use monkeypatch to simulate failures deterministically.
-5. If production code re-raises exceptions, tests should assert that too.
+### 1) Basic Auth (credentials per request)
+Good for internal tools and quick admin endpoints.
 
-If a test passes randomly, it is not done yet.
+Use it correctly:
+- parse `Basic <base64(username:password)>`
+- handle decode errors as auth failures (not 500s)
+- compare credentials with `hmac.compare_digest`
+
+### 2) JWT (stateless signed token)
+Good when you want a signed claim set passed between services.
+
+Minimum checks:
+- token has 3 segments
+- signature matches HS256 secret
+- `exp` exists and is still valid
+
+### 3) OAuth-style scopes (authorization)
+Auth says *who*. Scopes say *what they can do*.
+
+Keep authorization explicit:
+- require all scopes needed for an action
+- support common claim styles (`scope` string, `scopes` list)
 
 ---
 
 ## Assignment
 
-Implement the Week 5 tests.
+Implement Week 6 auth helpers in `src/security/auth.py`.
 
-### In `tests/test_week5.py`
-Complete the TODO tests so they verify all key Week 4 behaviors.
+### 1) Basic auth functions
+Implement:
+- `parse_basic_auth_header(auth_header)`
+- `verify_basic_credentials(auth_header, expected_username, expected_password)`
 
-You must include:
-- at least one parametrized test (`@pytest.mark.parametrize`)
-- at least one fixture (`@pytest.fixture`)
-- at least one monkeypatch-based failure simulation
+### 2) JWT functions
+Implement:
+- `create_hs256_jwt(subject, secret, expires_in_seconds=3600, scopes=None, now=None)`
+- `verify_hs256_jwt(token, secret, now=None)`
 
-Keep each test small and explicit.
+Implementation notes:
+- use URL-safe base64 segments without padding
+- sign with HMAC-SHA256
+- treat invalid structure/signature/expiration as `ValueError`
 
-Expected focus areas:
-- config validation and defaults
-- logger level + format behavior
-- retry semantics
-- failure logging + exception re-raise
+### 3) OAuth helpers
+Implement:
+- `extract_bearer_token(auth_header)`
+- `token_has_required_scopes(claims, required_scopes)`
+
+---
+
+## Useful Idioms (Keep These)
+
+1. Normalize input before checks.
+   - Example: trim header value once, then parse.
+
+2. Fail closed.
+   - If token format is odd or claims are missing, reject.
+
+3. Keep time deterministic in tests.
+   - Accept `now` as an argument instead of calling `datetime.now()` directly.
+
+4. Separate authentication from authorization.
+   - Verify token first, then check required scopes.
+
+5. Return booleans for allow/deny decisions, raise only for malformed/invalid auth artifacts.
 
 ---
 
 ## Testing
 
 ```bash
-pytest tests/test_week5.py -v
+pytest tests/test_week6.py -v
 pytest tests -v
 ```
 
@@ -95,13 +105,13 @@ pytest tests -v
 
 ## Success Criteria
 
-- ✅ Prior week tests still pass
-- ✅ Week 5 tests are deterministic and meaningful
-- ✅ Retry tests verify the right failures are retried
-- ✅ Failure path tests assert both logs and raised exceptions
+- ✅ Week 1-5 tests still pass
+- ✅ Basic auth parsing handles malformed input safely
+- ✅ JWT verification rejects tampered or expired tokens
+- ✅ Scope checks enforce least privilege (all required scopes)
 
 ---
 
 ## Next Week Preview
 
-Week 6 will look at authentication options, including API key auth and OAuth, and where each one fits.
+Week 7 will focus on hardening and observability: rate limits, audit logs, and secure failure responses.

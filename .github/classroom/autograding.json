@@ -269,6 +269,56 @@
       "comparison": "included",
       "timeout": 10,
       "points": 20
+    },
+    {
+      "name": "Week 6 - Basic - Parse Header",
+      "setup": "",
+      "run": "pytest tests/test_week6.py::test_parse_basic_auth_header_returns_username_and_password -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 6 - Basic - Verify Credentials",
+      "setup": "",
+      "run": "pytest tests/test_week6.py::test_verify_basic_credentials_accepts_valid_and_rejects_invalid -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 6 - JWT - Round Trip",
+      "setup": "",
+      "run": "pytest tests/test_week6.py::test_create_and_verify_hs256_jwt_round_trip -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 6 - JWT - Reject Expired",
+      "setup": "",
+      "run": "pytest tests/test_week6.py::test_verify_hs256_jwt_rejects_expired_token -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 6 - OAuth - Bearer And Scopes",
+      "setup": "",
+      "run": "pytest tests/test_week6.py::test_extract_bearer_token_and_scope_checks -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
     }
   ]
 }
