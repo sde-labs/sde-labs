@@ -219,6 +219,106 @@
       "comparison": "included",
       "timeout": 10,
       "points": 20
+    },
+    {
+      "name": "Week 5 - Testing - Log Level Parametrized",
+      "setup": "",
+      "run": "pytest tests/test_week5.py::test_week5_log_level_behavior -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 5 - Testing - Missing Config Case",
+      "setup": "",
+      "run": "pytest tests/test_week5.py::test_week5_config_missing_database_url_raises -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 5 - Testing - Validation Not Retried",
+      "setup": "",
+      "run": "pytest tests/test_week5.py::test_week5_validation_error_not_retried -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 5 - Testing - Retry On Infra Failure",
+      "setup": "",
+      "run": "pytest tests/test_week5.py::test_week5_persistence_failure_retries -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 5 - Testing - Terminal Failure",
+      "setup": "",
+      "run": "pytest tests/test_week5.py::test_week5_final_failure_logs_and_raises -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 6 - Basic - Parse Header",
+      "setup": "",
+      "run": "pytest tests/test_week6.py::test_parse_basic_auth_header_returns_username_and_password -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 6 - Basic - Verify Credentials",
+      "setup": "",
+      "run": "pytest tests/test_week6.py::test_verify_basic_credentials_accepts_valid_and_rejects_invalid -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 6 - JWT - Round Trip",
+      "setup": "",
+      "run": "pytest tests/test_week6.py::test_create_and_verify_hs256_jwt_round_trip -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 6 - JWT - Reject Expired",
+      "setup": "",
+      "run": "pytest tests/test_week6.py::test_verify_hs256_jwt_rejects_expired_token -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
+    },
+    {
+      "name": "Week 6 - OAuth - Bearer And Scopes",
+      "setup": "",
+      "run": "pytest tests/test_week6.py::test_extract_bearer_token_and_scope_checks -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 20
     }
   ]
 }
