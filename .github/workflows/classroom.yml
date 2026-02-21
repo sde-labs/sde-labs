@@ -61,6 +61,48 @@ jobs:
             exit 1
           fi
 
+      - name: Write runtime .env for autograding
+        shell: bash
+        run: |
+          cat > .env <<EOF
+          APP_ENV=${APP_ENV}
+          DATABASE_URL=${DATABASE_URL}
+          API_TOKEN=${API_TOKEN}
+          EOF
+
       - name: Run autograding tests
         uses: education/autograding@v1
         continue-on-error: true
+
+      - name: Fail if autograding is not full score
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          api_url="https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs?per_page=100"
+          summary=""
+
+          for attempt in {1..20}; do
+            summary=$(curl -fsSL \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "${api_url}" | jq -r '[.check_runs[] | select(.name == "Autograding") | (.output.summary // .output.text // "")][0] // ""')
+
+            if [[ "$summary" =~ Points[[:space:]]+([0-9]+)\/([0-9]+) ]]; then
+              earned="${BASH_REMATCH[1]}"
+              total="${BASH_REMATCH[2]}"
+              echo "Autograding score: ${earned}/${total}"
+
+              if [ "$earned" -lt "$total" ]; then
+                echo "::error::Autograding is not full score (${earned}/${total})."
+                exit 1
+              fi
+
+              exit 0
+            fi
+
+            sleep 3
+          done
+
+          echo "::error::Could not read autograding score from check output."
+          exit 1
