@@ -34,39 +34,72 @@ def load_settings():
     """
     Load application settings from environment.
 
-    TODO (Week 4): Return Settings.from_env().
+    Load and validate settings.
     """
-    raise NotImplementedError
+    return Settings.from_env()
 
 
 def build_logger(log_level: str, stream=None) -> logging.Logger:
-    """
-    Build and return the application logger.
+    logger = logging.getLogger("oil_well_monitoring")
+    logger.setLevel(log_level.upper())
+    logger.propagate = False
 
-    TODO (Week 4):
-    - create/get a logger named "oil_well_monitoring"
-    - set the logger level from `log_level`
-    - attach one StreamHandler (default stream if stream is None)
-    - set formatter to: %(asctime)s,%(levelname)s,%(message)s
-    - avoid duplicate handlers across repeated calls in tests
-    """
-    raise NotImplementedError
+    logger.handlers.clear()
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s,%(levelname)s,%(message)s",
+            datefmt="%Y-%m-%dT%H:%M:%S",
+        )
+    )
+    logger.addHandler(handler)
+
+    return logger
 
 
 def process_alert_event(conn, logger: logging.Logger, timestamp: str, site_id: str,
                         alert_type: str, latitude: float, longitude: float,
                         max_retries: int = 2) -> Alert:
-    """
-    Validate, classify, persist, and log one alert.
+    logger.debug("processing_alert site_id=%s alert_type=%s", site_id, alert_type)
 
-    TODO (Week 4):
-    - log debug context before processing
-    - build Alert to validate input
-    - classify and persist alert
-    - retry persistence failures up to `max_retries`
-    - log each retry with WARNING
-    - log success at INFO
-    - on ValidationError use logger.exception(...) then re-raise
-    - after final failed retry use logger.exception(...) then re-raise
-    """
-    raise NotImplementedError
+    try:
+        alert = Alert(
+            timestamp=timestamp,
+            site_id=site_id,
+            alert_type=alert_type,
+            severity="",
+            latitude=latitude,
+            longitude=longitude,
+        )
+    except ValidationError:
+        logger.exception("validation_failed")
+        raise
+
+    alert.severity = classify_alert(alert.alert_type)
+
+    for attempt in range(max_retries + 1):
+        try:
+            insert_alert(
+                conn,
+                alert.timestamp,
+                alert.site_id,
+                alert.alert_type,
+                alert.severity,
+                alert.latitude,
+                alert.longitude,
+            )
+            logger.info("alert_recorded")
+            return alert
+        except Exception:
+            if attempt < max_retries:
+                logger.warning(
+                    "retrying_persist attempt=%s max_retries=%s",
+                    attempt + 1,
+                    max_retries,
+                )
+                continue
+
+            logger.exception("alert_processing_failed")
+            raise
+
+    raise RuntimeError("unreachable")

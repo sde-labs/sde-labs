@@ -1,143 +1,93 @@
-# Week 4: Error Handling, Logging, and Basic Retries
+# Week 5: Testing That Catches Real Bugs
 
 ## Learning Objectives
 By the end of this lesson, you will:
-- add helpful logs 
-- control log verbosity with environment configuration
-- use `logger.exception(...)` to preserve stack traces
-- retry transient infrastructure failures safely
-- ... all while keeping domain logic clean 
+- write focused tests for happy paths and failure paths
+- test retries and logging behavior without flaky sleeps
+- use fixtures, parametrization, and monkeypatch in practical ways
+- keep tests readable and deterministic
 
 ---
 
 ## Why This Week Matters
 
-Up to Week 3, we focused on validating data and configuration early. That is necessary, but production issues still happen after startup.
+By Week 4 we have validation, logging, and retries. That gives us better runtime behavior, but we still need protection against regressions.
 
-Common examples:
-- payload arrives with invalid values that our type validators don't catch
-- database insert fails because of a temporary lock
-- tests fail in CI with little context because logs are too sparse
+Good tests are not about chasing coverage numbers. They protect behavior that matters.
 
-The goal is to make failures obvious, actionable, and bounded.
-
----
-
-## Logging You Can Actually Use
-
-Use standard levels:
-- `DEBUG` for deep troubleshooting
-- `INFO` for normal successful flow
-- `WARNING` for recoverable issues (like retries)
-- `ERROR`/`CRITICAL` for terminal failures
-
-Use a consistent format so local logs and CI logs are easy to scan:
-
-`timestamp,level,msg`
-
-In Python logging format terms:
-
-`%(asctime)s,%(levelname)s,%(message)s`
-
-Also, remember the difference between:
-- `logger.error("...")` -> message only
-- `logger.exception("...")` -> message plus traceback (inside `except`)
-
-If you are catching an exception and re-raising it, `logger.exception(...)` is usually what you want.
+In this project, the most important behaviors are:
+- bad config is rejected
+- invalid alerts fail fast
+- transient persistence errors retry
+- terminal failures are logged and raised
 
 ---
 
-## When Retries Help (And When They Don’t)
+## What To Test In This Repo
 
-Retries are for failures that can change between attempts.
+### 1) Config behavior
+`Settings.from_env()` should:
+- load valid values
+- fail when required vars are missing
+- reject invalid values
+- default optional values like `LOG_LEVEL`
 
-Good retry candidates:
-- temporary database lock
-- brief network timeout
-- transient service unavailability
+Example: if someone removes the `.db` validation, your test should fail right away.
 
-Bad retry candidates:
-- invalid data shape
-- failed regex validation
-- missing required fields
+### 2) Logger behavior
+`build_logger()` should:
+- use `timestamp,level,msg` format
+- show debug lines only when level is `DEBUG`
 
-Concrete example:
-- If `site_id` fails a regex check now, retrying that exact same string five times will still fail five times.
-- If DB insert fails due to a short lock, retrying may succeed on the next attempt.
+### 3) Orchestration behavior
+`process_alert_event()` should:
+- validate and persist on happy path
+- not retry validation failures
+- retry transient persistence failures
+- log terminal failures and re-raise
 
-So this week’s rule is simple:
-- do **not** retry validation failures
-- **do** retry persistence failures up to a small, fixed limit
-
-We are keeping retries simple with a bounded attempt count (`max_retries`). In real systems, teams often add exponential backoff (wait a little longer before each retry) plus jitter to avoid synchronized retry storms.
+Example: retrying a bad `alert_type` is useless, retrying a temporary DB failure can help.
 
 ---
 
-## Golden Rules (So It Does Not Become a Swamp)
+## Golden Rules
 
-1. Validate early, outside retry loops.
-   - If input/config is invalid, fail once, log once, and return the error.
+1. Test behavior, not implementation details.
+2. Keep each test focused on one outcome.
+3. Avoid nondeterminism (no sleeps, no network).
+4. Use monkeypatch to simulate failures deterministically.
+5. If production code re-raises exceptions, tests should assert that too.
 
-2. Retry only the unstable I/O boundary.
-   - Put retries around the DB write call, not around the whole function.
-
-3. Keep `try/except` as narrow as possible.
-   - Catch `ValidationError` around validation.
-   - Catch runtime exceptions around persistence.
-
-4. Log once per decision point.
-   - `DEBUG`: start/context
-   - `WARNING`: each retry attempt
-   - `INFO`: success
-   - `exception(...)`: terminal failure before re-raise
-
-5. Re-raise after terminal failure.
-   - Logging is observability, not recovery by itself.
-
-If you follow these five rules, your code stays readable and your logs stay useful.
+If a test passes randomly, it is not done yet.
 
 ---
 
 ## Assignment
 
-Implement Week 4 in the existing project.
+Implement the Week 5 tests.
 
-### 1) Extend config in `src/config/settings.py`
-- Add `log_level` to `Settings` with default `INFO`.
-- Update `from_env()` to read `LOG_LEVEL` (default `INFO`).
-- Validate allowed values: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.
+### In `tests/test_week5.py`
+Complete the TODO tests so they verify all key Week 4 behaviors.
 
-### 2) Implement orchestration in `src/main.py`
-- Implement `load_settings()`.
-- Implement `build_logger(log_level, stream=None)`:
-  - logger name: `oil_well_monitoring`
-  - format: `%(asctime)s,%(levelname)s,%(message)s`
-  - avoid duplicate handlers in repeated calls
-- Implement `process_alert_event(..., max_retries=2)`:
-  - validate with `Alert`
-  - classify + persist using existing code
-  - retry persistence failures up to `max_retries`
-  - log retry attempts with `WARNING`
-  - on validation failure: `logger.exception(...)` then re-raise
-  - on final persistence failure: `logger.exception(...)` then re-raise
-  - on success: log at `INFO`
+You must include:
+- at least one parametrized test (`@pytest.mark.parametrize`)
+- at least one fixture (`@pytest.fixture`)
+- at least one monkeypatch-based failure simulation
 
-### 3) Local debugging toggle in `.env`
+Keep each test small and explicit.
 
-Set:
-
-```dotenv
-LOG_LEVEL=DEBUG
-```
-
-Use this while debugging so debug lines appear. Tests should still pass with default `INFO` behavior.
+Expected focus areas:
+- config validation and defaults
+- logger level + format behavior
+- retry semantics
+- failure logging + exception re-raise
 
 ---
 
 ## Testing
 
 ```bash
-pytest tests/test_week4.py -v
+pytest tests/test_week5.py -v
 pytest tests -v
 ```
 
@@ -145,14 +95,13 @@ pytest tests -v
 
 ## Success Criteria
 
-- ✅ Week 1-4 tests pass
-- ✅ logs follow `timestamp,level,msg`
-- ✅ debug logs appear when `LOG_LEVEL=DEBUG`
-- ✅ validation failures are logged with traceback and not retried
-- ✅ persistence failures retry up to the limit, then log and raise
+- ✅ Prior week tests still pass
+- ✅ Week 5 tests are deterministic and meaningful
+- ✅ Retry tests verify the right failures are retried
+- ✅ Failure path tests assert both logs and raised exceptions
 
 ---
 
 ## Next Week Preview
 
-Week 5 will look at authentication options, including API key auth and OAuth, and where each one fits.
+Week 6 will look at authentication options, including API key auth and OAuth, and where each one fits.
