@@ -1,117 +1,129 @@
-# Week 6: Practical Auth - Basic, JWT, and OAuth Scopes
+# Week 7: Observability — Metrics, Tracing, and Production Health
 
 ## Learning Objectives
+
 By the end of this lesson, you will:
-- parse and verify Basic auth safely
-- issue and verify HS256 JWTs with expiration
-- extract bearer tokens and enforce OAuth-style scopes
-- avoid common auth pitfalls in small Python services
+- record structured metrics with dimensional tags
+- aggregate component health into a single probe response
+- measure execution time with nanosecond precision
+- apply threshold-based severity classification to numeric signals
+- understand how correlation IDs connect requests across services
 
 ---
 
 ## Why This Week Matters
 
-Most security incidents are not caused by advanced crypto attacks. They happen because simple auth details are inconsistent or skipped.
+Logging (Week 4) tells you *what happened*. Observability tells you *why it happened* and *how the system is performing* — even across services you do not control.
 
-Typical examples:
-- accepting malformed `Authorization` headers
-- comparing secrets with normal `==` instead of constant-time checks
-- trusting JWT payloads without verifying signature or `exp`
-- checking for "some scope" instead of all required scopes
+Modern production systems run as many small processes: containers on EC2, Lambda functions, ECS tasks. When a request touches five services, a single log line is not enough to reconstruct what went wrong. You need:
 
-This week is about building guardrails that are small, boring, and dependable.
+- **Metrics** — numeric signals sampled over time (latency, error rate, CPU usage)
+- **Traces** — a thread connecting one request across services via a shared ID
+
+Without these, debugging in production is guesswork.
 
 ---
 
-## Three Auth Modes, One Mental Model
+## Three Pillars (Logs ✓, Metrics, Traces)
 
-### 1) Basic Auth (credentials per request)
-Good for internal tools and quick admin endpoints.
+### 1) Production Runtime — Where Your Code Lives
 
-Use it correctly:
-- parse `Basic <base64(username:password)>`
-- handle decode errors as auth failures (not 500s)
-- compare credentials with `hmac.compare_digest`
+EC2 instances, Docker containers, and serverless functions share one trait: they are ephemeral or replaceable. Orchestrators — Kubernetes, ECS, Lambda — rely on **health probes** to decide whether to send traffic to an instance.
 
-### 2) JWT (stateless signed token)
-Good when you want a signed claim set passed between services.
+A health endpoint aggregates the status of individual dependencies (database, cache, external API) into one signal the platform can act on:
 
-Minimum checks:
-- token has 3 segments
-- signature matches HS256 secret
-- `exp` exists and is still valid
+- all checks pass → `"healthy"` — accept traffic
+- any check fails → `"degraded"` — route traffic elsewhere
 
-### 3) OAuth-style scopes (authorization)
-Auth says *who*. Scopes say *what they can do*.
+### 2) Observability — Metrics and Tracing
 
-Keep authorization explicit:
-- require all scopes needed for an action
-- support common claim styles (`scope` string, `scopes` list)
+**Metrics** are named numeric values captured at a point in time, with optional dimensions called **tags**. Tags let you slice a metric by host, region, or environment without emitting separate metrics for each combination:
+
+```python
+record_metric("api.latency", 142.3, unit="ms", tags={"region": "us-east-1"})
+```
+
+**Tracing** connects one logical request as it moves through multiple services. A **correlation ID** (also called a trace ID or request ID) is generated at the entry point and forwarded in every downstream call via a request header:
+
+```
+X-Correlation-Id: 4f3a1b2c-89de-4f01-a3bc-1234567890ab
+```
+
+Each service reads the header if present, or creates one if absent. This makes it possible to reconstruct a full request trace across logs from many services.
+
+### 3) Performance — Measuring What Matters
+
+Python's `time.time()` returns a float in seconds, which can lose precision at millisecond granularity due to floating-point representation. Use `time.time_ns()` instead — it returns nanoseconds as a plain integer, then convert at the boundary:
+
+```python
+start = time.time_ns()
+do_work()
+duration_ms = (time.time_ns() - start) / 1_000_000
+```
+
+Thresholds translate a raw metric into an actionable severity that alerting systems can act on:
+
+| Value range              | Severity     |
+|--------------------------|--------------|
+| below warning            | `"ok"`       |
+| warning ≤ value < critical | `"warning"` |
+| critical ≤ value         | `"critical"` |
 
 ---
 
 ## Assignment
 
-Implement Week 6 auth helpers in `src/security/auth.py`.
+Implement Week 7 observability helpers in `src/observability/monitor.py`.
 
-### 1) Basic auth functions
-Implement:
-- `parse_basic_auth_header(auth_header)`
-- `verify_basic_credentials(auth_header, expected_username, expected_password)`
+### 1) Metrics
 
-### 2) JWT functions
-Implement:
-- `create_hs256_jwt(subject, secret, expires_in_seconds=3600, scopes=None, now=None)`
-- `verify_hs256_jwt(token, secret, now=None)`
+- `record_metric(name, value, unit="count", tags=None, now=None) -> dict`
+  - Return a dict with keys: `name`, `value`, `unit`, `tags`, `timestamp`
+  - `tags` should be `{}` in the returned dict when not provided (never `None`)
+  - `timestamp` is an epoch int; use `now` if provided, else `int(time.time())`
 
-Implementation notes:
-- use URL-safe base64 segments without padding
-- sign with HMAC-SHA256
-- treat invalid structure/signature/expiration as `ValueError`
+### 2) Health and Performance
 
-### 3) OAuth helpers
-Implement:
-- `extract_bearer_token(auth_header)`
-- `token_has_required_scopes(claims, required_scopes)`
+- `build_health_response(checks: dict[str, bool]) -> dict`
+  - Return `{"status": "healthy", "checks": checks}` when all checks are `True`
+  - Return `{"status": "degraded", "checks": checks}` when any check is `False`
+
+- `elapsed_ms(start_ns: int, end_ns: int) -> float`
+  - Convert nanosecond timestamps to a millisecond duration
+
+- `check_threshold(value: float, warning: float, critical: float) -> str`
+  - Return `"ok"`, `"warning"`, or `"critical"` based on which band `value` falls into
+  - Boundary values: `warning` maps to `"warning"`, `critical` maps to `"critical"`
 
 ---
 
 ## Useful Idioms (Keep These)
 
-1. Normalize input before checks.
-   - Example: trim header value once, then parse.
+1. Tags default to `{}`, never `None` — callers should not need to guard against missing tags.
 
-2. Fail closed.
-   - If token format is odd or claims are missing, reject.
+2. Accept `now` for time-dependent functions — keeps tests deterministic without mocking.
 
-3. Keep time deterministic in tests.
-   - Accept `now` as an argument instead of calling `datetime.now()` directly.
+3. Fail open on health checks — return a response dict, never raise.
 
-4. Separate authentication from authorization.
-   - Verify token first, then check required scopes.
+4. Use `time.time_ns()` for timing, convert to ms at the call boundary.
 
-5. Return booleans for allow/deny decisions, raise only for malformed/invalid auth artifacts.
+5. Thresholds are inclusive at the lower bound of each band (`>=`, not `>`).
 
 ---
 
 ## Testing
 
 ```bash
-pytest tests/test_week6.py -v
-pytest tests -v
+pytest tests/test_week7.py -v
+pytest tests/ -v
 ```
 
 ---
 
 ## Success Criteria
 
-- ✅ Week 1-5 tests still pass
-- ✅ Basic auth parsing handles malformed input safely
-- ✅ JWT verification rejects tampered or expired tokens
-- ✅ Scope checks enforce least privilege (all required scopes)
-
----
-
-## Next Week Preview
-
-Week 7 will focus on hardening and observability: rate limits, audit logs, and secure failure responses.
+- ✅ Weeks 1–6 tests still pass
+- ✅ `record_metric` returns a dict with all five keys; `tags` defaults to `{}`
+- ✅ `build_health_response` returns `"degraded"` when any single check fails
+- ✅ `elapsed_ms` accepts nanosecond inputs and returns milliseconds
+- ✅ `check_threshold` maps boundary values to the correct severity

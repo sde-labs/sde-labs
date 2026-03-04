@@ -319,6 +319,46 @@
       "comparison": "included",
       "timeout": 10,
       "points": 20
+    },
+    {
+      "name": "Week 7 - Metrics - Record Metric Shape",
+      "setup": "",
+      "run": "pytest tests/test_week7.py::test_record_metric_returns_expected_shape -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 25
+    },
+    {
+      "name": "Week 7 - Health - Aggregate Status",
+      "setup": "",
+      "run": "pytest tests/test_week7.py::test_build_health_response_aggregates_status -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 25
+    },
+    {
+      "name": "Week 7 - Performance - Elapsed Milliseconds",
+      "setup": "",
+      "run": "pytest tests/test_week7.py::test_elapsed_ms_returns_duration_in_milliseconds -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 25
+    },
+    {
+      "name": "Week 7 - Alerting - Threshold Severity",
+      "setup": "",
+      "run": "pytest tests/test_week7.py::test_check_threshold_returns_correct_severity -v",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 25
     }
   ]
 }
