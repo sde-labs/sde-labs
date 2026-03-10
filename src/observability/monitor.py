@@ -25,7 +25,13 @@ def record_metric(
     - tags should default to {} (not None) in the returned dict
     - timestamp is an epoch int; use now if provided, else time.time()
     """
-    raise NotImplementedError
+    return {
+        "name": name,
+        "value": value,
+        "unit": unit,
+        "tags": tags if tags is not None else {},
+        "timestamp": now if now is not None else int(time.time()),
+    }
 
 
 def build_health_response(checks: dict[str, bool]) -> dict:
@@ -35,7 +41,8 @@ def build_health_response(checks: dict[str, bool]) -> dict:
     - Return {"status": "healthy", "checks": checks} when all are True
     - Return {"status": "degraded", "checks": checks} when any are False
     """
-    raise NotImplementedError
+    status = "healthy" if all(checks.values()) else "degraded"
+    return {"status": status, "checks": checks}
 
 
 def elapsed_ms(start_ns: int, end_ns: int) -> float:
@@ -44,7 +51,7 @@ def elapsed_ms(start_ns: int, end_ns: int) -> float:
     Use time.time_ns() to capture start/end values.
     Convert: (end_ns - start_ns) / 1_000_000
     """
-    raise NotImplementedError
+    return (end_ns - start_ns) / 1_000_000
 
 
 def check_threshold(value: float, warning: float, critical: float) -> str:
@@ -55,4 +62,8 @@ def check_threshold(value: float, warning: float, critical: float) -> str:
     - "warning"  when warning <= value < critical
     - "critical" when value >= critical
     """
-    raise NotImplementedError
+    if value >= critical:
+        return "critical"
+    if value >= warning:
+        return "warning"
+    return "ok"
